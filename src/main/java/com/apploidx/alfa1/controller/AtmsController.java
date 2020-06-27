@@ -59,7 +59,8 @@ public class AtmsController {
                 .filter(a -> {
                     if (payments == null) return true;
                     else {
-                        return Boolean.parseBoolean(a.getServices().get("payments")) == payments;
+
+                        return a.getServices().get("payments").equals("Y") == payments;
                     }
                 })
                 .filter(a -> a.getCoordinates() != null && a.getCoordinates().get("latitude")!=null && a.getCoordinates().get("longitude")!=null )
@@ -74,7 +75,7 @@ public class AtmsController {
                 response1.getCoordinates().get("longitude"),
                 response1.getAddress().get("city"),
                 response1.getAddress().get("location"),
-                Boolean.parseBoolean(response1.getServices().get("payments"))));
+                response1.getServices().get("payments").equals("Y")));
     }
 
     double distance(double x1, double y1, double x2, double y2) {
