@@ -3,10 +3,7 @@ package com.apploidx.alfa1.controller;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -48,6 +45,46 @@ public class AtmsController {
                     res.getAddress().get("location"),
                     Boolean.parseBoolean(res.getServices().get("payments"))));
         }
+    }
+
+    @GetMapping("/nearest")
+    public ResponseEntity<Response> get(@RequestParam("latitude") double latitude, @RequestParam("longitude") double longitude, @RequestParam(value = "payments",required = false) Boolean payments) {
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("x-ibm-client-id", "49db3088-5d30-472a-88c4-17c2a815ebce");
+        HttpEntity<String> httpEntity = new HttpEntity<>(httpHeaders);
+        ApiArmsResponse response = restTemplate.exchange("https://apiws.alfabank.ru/alfabank/alfadevportal/atm-service/atms", HttpMethod.GET, httpEntity, ApiArmsResponse.class).getBody();
+
+        Optional<CompareClass> min = response.getData().getAtms().stream()
+                .filter(a -> {
+                    if (payments == null) return true;
+                    else {
+                        return Boolean.parseBoolean(a.getServices().get("payments")) == payments;
+                    }
+                })
+                .filter(a -> a.getCoordinates() != null && a.getCoordinates().get("latitude")!=null && a.getCoordinates().get("longitude")!=null )
+                .map(a -> new CompareClass(distance(longitude, latitude,
+                         a.getCoordinates().get("longitude"), a.getCoordinates().get("latitude")),
+                        a))
+                .min((c1, c2) -> (int) Math.round(c1.getDistance() - c2.getDistance()));
+        if (min.isEmpty()) return ResponseEntity.status(404).body(new Error("atm not found"));
+        ArmApiResponse response1 = min.get().getArmApiResponse();
+        return ResponseEntity.ok(new ArmResponse(response1.getDeviceId(),
+                response1.getCoordinates().get("latitude"),
+                response1.getCoordinates().get("longitude"),
+                response1.getAddress().get("city"),
+                response1.getAddress().get("location"),
+                Boolean.parseBoolean(response1.getServices().get("payments"))));
+    }
+
+    double distance(double x1, double y1, double x2, double y2) {
+        return Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+    }
+
+    @Data@AllArgsConstructor
+    static class CompareClass {
+        double distance;
+        ArmApiResponse armApiResponse;
     }
 
     @Data@AllArgsConstructor
